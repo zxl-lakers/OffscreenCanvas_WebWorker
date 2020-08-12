@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Offscreen Canvas In Web Workers</title>
+  <link rel="stylesheet" href="./OffscreenCanvas_files/style.css">
+</head>
+
+<body>
+  <header class="hide-in-iframe">
+    <h1>
+      Offscreen Canvas In Web Workers
+    </h1>
+    <div class="desc">
+      离屏 Canvas 允许在屏幕外创建 canvas ，并且也可以用在 web workers 中
+    </div>
+  </header>
+  <main class="supported">
+
+    <section>
+      <p class="hide-in-iframe">
+        OffscreenCanvas 可以避免由于主线程阻塞引起的动画掉帧
+      </p>
+      <p class="desc">
+        当您点击 "make me busy" 按钮时, 主线程画布上的动画被阻塞，而工作在 worker 线程中的动画仍然可以平稳播放
+      </p>
+      <button id="make-busy">Make me busy!</button>
+      <div id="busy">&nbsp;</div>
+
+    <div class="display">
+      <div>
+        <h1>
+          主线程的 Canvas
+        </h1>
+        <canvas id="canvas-window" width="400" height="200"></canvas>
+      </div>
+      <div>
+        <h1>
+          worker 中的 Canvas
+        </h1>
+        <canvas id="canvas-worker" width="400" height="200"></canvas>
+      </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./OffscreenCanvas_files/animation.js"></script>
+
+  <!--
+    这里是以 Blob 方式引入 worker 线程的方法
+  -->
+
+  <!-- <script type="script/worker" id="workerCode">
+    let animationWorker = null;
+    self.onmessage = function(e) {
+      switch (e.data.msg) {
+        case 'start':
+          if (!animationWorker) {
+            importScripts(e.data.origin + 'OffscreenCanvas_files/animation.js');
+            animationWorker = new Animation(e.data.canvas.getContext('2d'));
+          }
+          animationWorker.start();
+          break;
+        case 'stop':
+          animationWorker.stop();
+          break;
+      }
+    };
+  </script> -->
+
+  <script>
+    (() => {
+
+      document.querySelector('#make-busy').addEventListener('click', () => {
+        document.querySelector('#busy').innerText = 'Main thread working...';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            Animation.fibonacci(40);
+            document.querySelector('#busy').innerText = 'Done!';
+          });
+        })
+      });
+
+      const animationWindow = new Animation(document.querySelector('#canvas-window').getContext('2d'));
+      animationWindow.start();
+
+      const worker = new Worker('OffscreenCanvas_files/worker.js')
+
+      // 由于 web worker 无法以本地 file 协议加载文件，因此也可以以 Blob 的形式加载 worker 代码：
+
+      // const workerCode = document.querySelector('#workerCode').textContent;
+      // const blob = new Blob([workerCode], { type: 'text/javascript' });
+      // const url = URL.createObjectURL(blob);
+      // const worker = new Worker(url);
+
+      const offscreen = document.querySelector('#canvas-worker').transferControlToOffscreen();
+      const urlParts = location.href.split('/');
+      if (urlParts[urlParts.length - 1].indexOf('.') !== -1) {
+        urlParts.pop();
+      }
+      worker.postMessage({ msg: 'start', origin: urlParts.join('/'), canvas: offscreen }, [offscreen]);
+      // URL.revokeObjectURL(url); // cleanup
+    })();
+
+
+  </script>
+
+
+
+</body></html>
